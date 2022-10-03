@@ -322,6 +322,14 @@ bool isIntersected(vec4 origin, vec4 dir)
 
 // Local illumination related functions. TODO
 
+float getFresnel(float cosTheta, float sinTheta) {
+    float ci = pow(pow(eta, 2) - pow(sinTheta, 2), 1/2);
+    float Fs = pow(abs((cosTheta - ci) / (cosTheta + ci)), 2);
+    float Fp = pow(abs((pow(eta, 2) * cosTheta - ci) / (pow(eta, 2) * cosTheta + ci)), 2);
+    float F = (Fs + Fp) / 2;
+    return F;
+}
+
 vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v)
 {
 	// Goal: compute direct illumination at point p, from the light source at lightPosition.
@@ -329,8 +337,22 @@ vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v)
 	// p: coordinates of intersection point, xyzw
 	// n: normal at intersection point, xyzw
 	// v: incoming viewing direction. Points towards the eye.
-	// TODO
-	return vec4(0.4, 0.4, 0.4, 1.0);
+    // L: the vector to the lightSource 
+    vec4 L = normalize(vec4(lightPosition, 1) - p);
+
+    // Ambient lighting
+    vec4 Ca = Ka * color * lightIntensity;
+
+    // Difuse ligthing
+    vec4 Cd = Kd * color * max(dot(n, L), 0) * lightIntensity;
+
+    // Specular lighting
+    vec4 VL = v + L;
+    vec4 H = normalize(VL);
+    float cosTheta = dot(normalize(H), normalize(L));
+    float sinTheta = sqrt(1 - pow(cosTheta, 2));
+    vec4 Cs = getFresnel(cosTheta, sinTheta) * color * pow(max(dot(n, H), 0), shininess) * lightIntensity;
+	return Ca + Cd + Cs;
 }
 
 const int MAX_TRACE = 3;
