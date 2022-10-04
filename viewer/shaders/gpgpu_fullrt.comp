@@ -149,8 +149,12 @@ vec4 interpolateColor(hitinfo_t h)
 
 vec4 interpolateNormal(hitinfo_t h)
 {
-	// TODO
-	return vec4(1,0,0,1);
+    if (normals.length() > 0) {
+		vec4 c0 = normals[indices[h.hit_vptr]];
+		vec4 c1 = normals[indices[h.hit_vptr + 1]];
+		vec4 c2 = normals[indices[h.hit_vptr + 2]];
+		return normalize(h.t.w * c0 + h.t.y * c1 + h.t.z * c2);
+	} else return vec4(1, 0, 0, 1);
 }
 
 // BVH-related functions:
@@ -349,7 +353,7 @@ vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v)
     // Specular lighting
     vec4 VL = v + L;
     vec4 H = normalize(VL);
-    float cosTheta = dot(normalize(H), normalize(L));
+    float cosTheta = dot(normalize(H), L);
     float sinTheta = sqrt(1 - pow(cosTheta, 2));
     vec4 Cs = getFresnel(cosTheta, sinTheta) * color * pow(max(dot(n, H), 0), shininess) * lightIntensity;
 	return Ca + Cd + Cs;
