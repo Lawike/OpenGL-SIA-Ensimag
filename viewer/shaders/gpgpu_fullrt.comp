@@ -326,12 +326,20 @@ bool isIntersected(vec4 origin, vec4 dir)
 
 // Local illumination related functions. TODO
 
-float getFresnel(float cosTheta, float sinTheta) {
-    float ci = pow(pow(eta, 2) - pow(sinTheta, 2), 1/2);
+float getFresnel(float cosTheta, float sinTheta2) {
+    float ci = pow(eta*eta - sinTheta2, 1/2);
     float Fs = pow(abs((cosTheta - ci) / (cosTheta + ci)), 2);
-    float Fp = pow(abs((pow(eta, 2) * cosTheta - ci) / (pow(eta, 2) * cosTheta + ci)), 2);
+    float Fp = pow(abs((pow(eta, 2) * cosTheta - ci) / (eta * eta * cosTheta + ci)), 2);
     float F = (Fs + Fp) / 2;
     return F;
+}
+
+float getTanTheta2(float cosTheta) {
+    return (1 - cosTheta * cosTheta) / (cosTheta * cosTheta);
+}
+
+float G1(float tanTheta2, float alpha) {
+    return 2 / (1 + sqrt(1 + alpha * alpha * tanTheta2));
 }
 
 vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v)
@@ -347,15 +355,54 @@ vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v)
     // Ambient lighting
     vec4 Ca = Ka * color * lightIntensity;
 
-    // Difuse ligthing
+    // Difuse lighting
     vec4 Cd = Kd * color * max(dot(n, L), 0) * lightIntensity;
 
     // Specular lighting
     vec4 VL = v + L;
     vec4 H = normalize(VL);
-    float cosTheta = dot(normalize(H), L);
-    float sinTheta = sqrt(1 - pow(cosTheta, 2));
-    vec4 Cs = getFresnel(cosTheta, sinTheta) * color * pow(max(dot(n, H), 0), shininess) * lightIntensity;
+    float cosTheta = dot(H, L);
+    float sinTheta2 = 1 - (cosTheta * cosTheta);
+    vec4 Cs;
+    // Model for specular lighting
+    if (blinnPhong) { // Blinn Phong
+        Cs = getFresnel(cosTheta, sinTheta2) * color * pow(max(dot(n, H), 0), shininess) * lightIntensity;
+    } else { // Cook-Torrance
+        // Theta > 0, we need to check if it isn't > pi/2
+        // Theta < 0 if cos(theta) > 0
+        float cosThetaD = cosTheta;
+        float tanThetaD2 = getTanTheta2(cosThetaD);
+
+        // Angle entre la normale et le demi-vecteur
+        float cosThetaH = dot(H, n);
+        float tanThetaH2 = getTanTheta2(cosThetaH);
+
+        // Angle entre la normale par rapport à la surface moyenne et le rayon réfléchi
+        float cosThetaO = dot(normalize(v), n);
+        float tanThetaO2 = getTanTheta2(cosThetaO);
+
+        // Angle entre la normale par rapport à la surface moyenne et le rayon émis
+        float cosThetaI = dot(L, n);
+        float tanThetaI2 = getTanTheta2(cosThetaI);
+
+        // Calcul de D
+        int khi = 0;
+        if (cosThetaD > 0) {
+            khi = 1;    
+        }
+        float alpha = 0.5 - shininess / 400;
+        if (alpha == 0) {
+            alpha = 0.000001;
+        }
+
+        float cosThetaH4 = cosThetaH * cosThetaH * cosThetaH * cosThetaH;
+        float D = (khi * (alpha * alpha)) / ((M_1_PI * cosThetaH4) * pow((alpha * alpha) + tanThetaH2, 2));
+
+        // Calcul de Cs
+        float num = getFresnel(cosThetaD, sinTheta2) * D * G1(tanThetaI2, alpha) * G1(tanThetaO2, alpha);
+        float denum = 4 * cosThetaI * cosThetaO;
+        Cs = (num / denum) * color;
+    }
 	return Ca + Cd + Cs;
 }
 
