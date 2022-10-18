@@ -327,18 +327,33 @@ bool isIntersected(vec4 origin, vec4 dir)
 // Local illumination related functions. TODO
 
 float getFresnel(float cosTheta, float sinTheta2) {
-    float ci = pow(eta*eta - sinTheta2, 1/2);
-    float Fs = pow(abs((cosTheta - ci) / (cosTheta + ci)), 2);
-    float Fp = pow(abs((pow(eta, 2) * cosTheta - ci) / (eta * eta * cosTheta + ci)), 2);
+    float ci = 0;
+    if (eta*eta - sinTheta2 > 0) {
+        ci = sqrt(eta*eta - sinTheta2);
+    }
+    float Fs = 0;
+    if ((cosTheta + ci) != 0) {
+        Fs = pow(abs((cosTheta - ci) / (cosTheta + ci)), 2);
+    }
+    float Fp = 0;
+    if (eta * eta * cosTheta + ci != 0) {
+        Fp = pow(abs((pow(eta, 2) * cosTheta - ci) / (eta * eta * cosTheta + ci)), 2);
+    }
     float F = (Fs + Fp) / 2;
     return F;
 }
 
 float getTanTheta2(float cosTheta) {
+    if ((cosTheta) == 0) {
+        return 0;
+    }
     return (1 - cosTheta * cosTheta) / (cosTheta * cosTheta);
 }
 
 float G1(float tanTheta2, float alpha) {
+    if ((1 + sqrt(1 + alpha * alpha * tanTheta2)) == 0) {
+        return 0;
+    }
     return 2 / (1 + sqrt(1 + alpha * alpha * tanTheta2));
 }
 
@@ -355,8 +370,16 @@ vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v)
     // Ambient lighting
     vec4 Ca = Ka * color * lightIntensity;
 
+    float cosThetaI = dot(L, n);
+
+    // Check if we're in the shadow
+    bool isInShadow = (cosThetaI <= 0) || isIntersected(p, L);
+    if (isInShadow) {
+        return Ca;
+    }
+
     // Difuse lighting
-    vec4 Cd = Kd * color * max(dot(n, L), 0) * lightIntensity;
+    vec4 Cd = Kd * color * max(cosThetaI, 0) * lightIntensity;
 
     // Specular lighting
     vec4 VL = v + L;
@@ -371,7 +394,6 @@ vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v)
         // Theta > 0, we need to check if it isn't > pi/2
         // Theta < 0 if cos(theta) > 0
         float cosThetaD = cosTheta;
-        float tanThetaD2 = getTanTheta2(cosThetaD);
 
         // Angle entre la normale et le demi-vecteur
         float cosThetaH = dot(H, n);
@@ -382,7 +404,6 @@ vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v)
         float tanThetaO2 = getTanTheta2(cosThetaO);
 
         // Angle entre la normale par rapport à la surface moyenne et le rayon émis
-        float cosThetaI = dot(L, n);
         float tanThetaI2 = getTanTheta2(cosThetaI);
 
         // Calcul de D
@@ -392,16 +413,23 @@ vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v)
         }
         float alpha = 0.5 - shininess / 400;
         if (alpha == 0) {
-            alpha = 0.000001;
+            alpha = 0.0025;
         }
 
         float cosThetaH4 = cosThetaH * cosThetaH * cosThetaH * cosThetaH;
-        float D = (khi * (alpha * alpha)) / ((M_1_PI * cosThetaH4) * pow((alpha * alpha) + tanThetaH2, 2));
+        float D = 0;
+        if (((M_1_PI * cosThetaH4) * pow((alpha * alpha) + tanThetaH2, 2)) != 0) {
+            D = (khi * (alpha * alpha)) / ((M_1_PI * cosThetaH4) * pow((alpha * alpha) + tanThetaH2, 2));
+        }
 
         // Calcul de Cs
         float num = getFresnel(cosThetaD, sinTheta2) * D * G1(tanThetaI2, alpha) * G1(tanThetaO2, alpha);
         float denum = 4 * cosThetaI * cosThetaO;
-        Cs = (num / denum) * color;
+        if (denum == 0) {
+            Cs = color;
+        } else {
+            Cs = (num / denum) * color;
+        }
     }
 	return Ca + Cd + Cs;
 }
