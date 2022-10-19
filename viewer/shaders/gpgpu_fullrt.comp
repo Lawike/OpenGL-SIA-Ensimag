@@ -462,6 +462,41 @@ struct trace_state_t
     vec4 N;       // normal at destination
 };
 
+vec4 indirectIllumination(trace_state_t stack[MAX_TRACE + 1], vec4 color, vec4 p, vec4 n, vec4 v) {
+    // Goal: compute indirect illumination at point p
+	// color: local material color, RGBA
+	// stack: stack containing all bounds
+	// p: coordinates of intersection point, xyzw
+	// n: normal at intersection point, xyzw
+	// v: incoming viewing direction. Points towards the eye.
+    
+    hitinfo_t hit_info;    
+    // Forward tracing
+    int bounceIndex = 0;
+    vec4 origin = p;
+    vec4 dir = v;
+    while (firstIntersection(origin, dir, hit_info) && bounceIndex < MAX_TRACE) {
+        //getLocal(origin, dir, hit_info, localColor, hit, N);
+        dir = dir - 2 * dot(dir, n) * n;
+
+        trace_state_t trace_state;                          // allocating a new trace_state to add to the stack
+        trace_state.origin = origin;                        // start of ray
+        trace_state.dir = dir;                              // direction
+        trace_state.color = interpolateColor(hit_info);     // color after multiple bounces
+        trace_state.localColor;                             // color of the material (after interpolation)
+        trace_state.h = hit_info;                           // what the ray hits (triangle Id, u, v, lambda)
+        trace_state.hit;                                    // point the ray hits
+        trace_state.Ld;                                     // direction to light at destination
+        trace_state.N = interpolateNormal(hit_info);        // normal at destination
+
+        stack[bounceIndex] = trace_state;
+        bounceIndex++;
+    }
+
+    // TODO: Backward tracing
+    return vec4(0, 0, 0, 1);
+}
+
 vec4 trace(vec4 origin, vec4 dir)
 {
     // These variables are for TP2
@@ -479,7 +514,7 @@ vec4 trace(vec4 origin, vec4 dir)
 
 	if (firstIntersection(origin, dir, hl)) {
 		getLocal(origin, dir, hl, localColor, hit, N);
-		return directIllumination(localColor, hit, N, -dir);
+		return directIllumination(localColor, hit, N, -dir) + indirectIllumination(stack, localColor, hit, N, -dir);
 	}
 
     return vec4(0, 0, 0, 1);
