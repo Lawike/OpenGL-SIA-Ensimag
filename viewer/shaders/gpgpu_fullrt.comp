@@ -385,13 +385,12 @@ vec4 getSpecularLigthningCookTorrance(float cosTheta, float cosThetaI, float cos
     return Cs;
 }
 
-vec4 getSpecularLigthningBlinnPhong(float cosTheta, float cosThetaI, vec4 n, vec4 H, vec4 color) {
+vec4 getSpecularLigthningBlinnPhong(float cosTheta, vec4 n, vec4 H, vec4 color) {
     float sinTheta2 = 1 - (cosTheta * cosTheta);
     return getFresnel(cosTheta) * color * pow(max(dot(n, H), 0), shininess) * lightIntensity;
 }
 
-vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v)
-{
+vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v) {
 	// Goal: compute direct illumination at point p, from the light source at lightPosition.
 	// color: local material color, RGBA
 	// p: coordinates of intersection point, xyzw
@@ -417,16 +416,16 @@ vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v)
     // Specular lighting
     vec4 VL = v + L;
     vec4 H = normalize(VL);
-    float cosTheta = dot(H, L);
-    float sinTheta2 = 1 - (cosTheta * cosTheta);
+    float cosThetaD = dot(H, L);
+    float sinTheta2 = 1 - (cosThetaD * cosThetaD);
     vec4 Cs;
     // Model for specular lighting
     if (blinnPhong) { // Blinn Phong
-        Cs = getSpecularLigthningBlinnPhong(cosTheta, cosThetaI, n, H, color);
+        Cs = getSpecularLigthningBlinnPhong(cosThetaD, n, H, color);
     } else { // Cook-Torrance
         // Theta > 0, we need to check if it isn't > pi/2
         // Theta < 0 if cos(theta) > 0
-        float cosThetaD = cosTheta;
+
 
         // Angle entre la normale et le demi-vecteur
         float cosThetaH = dot(H, n);
@@ -519,7 +518,7 @@ vec4 indirectIllumination(trace_state_t stack[MAX_TRACE + 1], vec4 p, vec4 n, ve
         trace_state.N = n;                                  // normal at destination
 
         origin = trace_state.hit;
-        dir = trace_state.Ld;        
+        dir = trace_state.Ld;
         stack[bounceIndex] = trace_state;
         bounceIndex++;
     }
@@ -533,7 +532,7 @@ vec4 indirectIllumination(trace_state_t stack[MAX_TRACE + 1], vec4 p, vec4 n, ve
 
         float cosThetaIndirect = dot(normalize(currentPoint.N), -normalize(currentPoint.dir));
 
-        outColor = directIllumination(currentPoint.localColor, currentPoint.hit, currentPoint.N, dir) + outColor * getFresnel(cosThetaIndirect);
+        outColor = directIllumination(currentPoint.localColor, currentPoint.hit, currentPoint.N, currentPoint.dir) + outColor * getFresnel(cosThetaIndirect);
         index--;
     }
     return outColor;
