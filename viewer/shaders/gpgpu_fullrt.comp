@@ -326,7 +326,8 @@ bool isIntersected(vec4 origin, vec4 dir)
 
 // Local illumination related functions. TODO
 
-float getFresnel(float cosTheta, float sinTheta2) {
+float getFresnel(float cosTheta) {
+    float sinTheta2 = 1 - (cosTheta * cosTheta);
     float ci = 0;
     if (eta*eta - sinTheta2 > 0) {
         ci = sqrt(eta*eta - sinTheta2);
@@ -355,6 +356,38 @@ float G1(float tanTheta2, float alpha) {
         return 0;
     }
     return 2 / (1 + sqrt(1 + alpha * alpha * tanTheta2));
+}
+
+float getD(float cosThetaH, float alpha, int khi) {
+    float tanThetaH2 = getTanTheta2(cosThetaH);
+
+    float cosThetaH4 = cosThetaH * cosThetaH * cosThetaH * cosThetaH;
+    float D = 0;
+    if (((M_1_PI * cosThetaH4) * pow((alpha * alpha) + tanThetaH2, 2)) != 0) {
+        D = (khi * (alpha * alpha)) / ((M_1_PI * cosThetaH4) * pow((alpha * alpha) + tanThetaH2, 2));
+    }
+    return D;
+}
+
+vec4 getSpecularLigthningCookTorrance(float cosTheta, float cosThetaI, float cosThetaO, float D, float alpha, vec4 color) {
+    float tanThetaI2 = getTanTheta2(cosThetaI);
+    float tanThetaO2 = getTanTheta2(cosThetaO);
+
+     // Calcul de Cs
+    vec4 Cs;
+    float num = getFresnel(cosTheta) * D * G1(tanThetaI2, alpha) * G1(tanThetaO2, alpha);
+    float denum = 4 * cosThetaI * cosThetaO;
+    if (denum == 0) {
+        Cs = color;
+    } else {
+        Cs = (num / denum) * color;
+    }
+    return Cs;
+}
+
+vec4 getSpecularLigthningBlinnPhong(float cosTheta, float cosThetaI, vec4 n, vec4 H) {
+    float sinTheta2 = 1 - (cosTheta * cosTheta);
+    return getFresnel(cosTheta) * color * pow(max(dot(n, H), 0), shininess) * lightIntensity;
 }
 
 vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v)
@@ -389,7 +422,7 @@ vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v)
     vec4 Cs;
     // Model for specular lighting
     if (blinnPhong) { // Blinn Phong
-        Cs = getFresnel(cosTheta, sinTheta2) * color * pow(max(dot(n, H), 0), shininess) * lightIntensity;
+        Cs = getSpecularLigthningBlinnPhong(cosTheta, cosThetaI, n, H);
     } else { // Cook-Torrance
         // Theta > 0, we need to check if it isn't > pi/2
         // Theta < 0 if cos(theta) > 0
@@ -421,20 +454,12 @@ vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v)
         if (((M_1_PI * cosThetaH4) * pow((alpha * alpha) + tanThetaH2, 2)) != 0) {
             D = (khi * (alpha * alpha)) / ((M_1_PI * cosThetaH4) * pow((alpha * alpha) + tanThetaH2, 2));
         }
-
-        // Calcul de Cs
-        float num = getFresnel(cosThetaD, sinTheta2) * D * G1(tanThetaI2, alpha) * G1(tanThetaO2, alpha);
-        float denum = 4 * cosThetaI * cosThetaO;
-        if (denum == 0) {
-            Cs = color;
-        } else {
-            Cs = (num / denum) * color;
-        }
+        Cs = getSpecularLigthningCookTorrance(cosThetaD, cosThetaI, cosThetaO, D, alpha, color);
     }
 	return Ca + Cd + Cs;
 }
 
-const int MAX_TRACE = 3;
+const int MAX_TRACE = 10;
 
 void getLocal(vec4 origin, vec4 dir, hitinfo_t h, out vec4 color, out vec4 p, out vec4 n)
 {
