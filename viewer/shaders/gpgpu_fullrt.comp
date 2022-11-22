@@ -23,7 +23,7 @@ uniform vec3 center;
 
 #define M_1_PI 0.31830988618
 
-#define Ka 0.2
+#define Ka 0.05
 #define Kd 0.3
 
 struct hitinfo_t {
@@ -487,7 +487,7 @@ struct trace_state_t
     vec4 N;       // normal at destination
 };
 
-vec4 indirectIllumination(trace_state_t stack[MAX_TRACE + 1], vec4 color, vec4 p, vec4 n, vec4 v) {
+vec4 indirectIllumination(trace_state_t stack[MAX_TRACE + 1], vec4 p, vec4 n, vec4 v) {
     // Goal: compute indirect illumination at point p
 	// color: local material color, RGBA
 	// stack: stack containing all bounds
@@ -495,31 +495,48 @@ vec4 indirectIllumination(trace_state_t stack[MAX_TRACE + 1], vec4 color, vec4 p
 	// n: normal at intersection point, xyzw
 	// v: incoming viewing direction. Points towards the eye.
     
-    hitinfo_t hit_info;    
-    // Forward tracing
-    int bounceIndex = 0;
     vec4 origin = p;
     vec4 dir = v;
-    while (firstIntersection(origin, dir, hit_info) && bounceIndex < MAX_TRACE) {
-        //getLocal(origin, dir, hit_info, localColor, hit, N);
-        dir = dir - 2 * dot(dir, n) * n;
+    vec4 hit;
+    vec4 localColor;
+    hitinfo_t hit_info;    
 
+    int bounceIndex = 0;
+
+    // Forward tracing
+    while (bounceIndex <= MAX_TRACE && firstIntersection(origin, dir, hit_info)) {
+        // Transform to local reference instead of world
+        getLocal(origin, dir, hit_info, localColor, hit, n);
+
+        // Calculate reflected ray direction
         trace_state_t trace_state;                          // allocating a new trace_state to add to the stack
         trace_state.origin = origin;                        // start of ray
         trace_state.dir = dir;                              // direction
-        trace_state.color = interpolateColor(hit_info);     // color after multiple bounces
-        trace_state.localColor;                             // color of the material (after interpolation)
-        trace_state.h = hit_info;                           // what the ray hits (triangle Id, u, v, lambda)
-        trace_state.hit;                                    // point the ray hits
-        trace_state.Ld;                                     // direction to light at destination
-        trace_state.N = interpolateNormal(hit_info);        // normal at destination
+        trace_state.localColor = localColor;                // color of the material (after interpolation)
+        trace_state.h = hit_info;                           // what the ray hits (triangle Id, u, v,lambda)
+        trace_state.hit = hit;                              // point the ray hits
+        trace_state.Ld = reflect(dir, n);                   // direction to light at destination
+        trace_state.N = n;                                  // normal at destination
 
+        origin = trace_state.hit;
+        dir = trace_state.Ld;        
         stack[bounceIndex] = trace_state;
         bounceIndex++;
     }
 
-    // TODO: Backward tracing
-    return vec4(0, 0, 0, 1);
+    vec4 outColor = vec4(0, 0, 0, 1);
+    int index = bounceIndex - 1;
+
+    // Backward tracing
+    while (index >= 0) {
+        trace_state_t currentPoint = stack[index];
+
+        float cosThetaIndirect = dot(normalize(currentPoint.N), -normalize(currentPoint.dir));
+
+        outColor = directIllumination(currentPoint.localColor, currentPoint.hit, currentPoint.N, dir) + outColor * getFresnel(cosThetaIndirect);
+        index--;
+    }
+    return outColor;
 }
 
 vec4 trace(vec4 origin, vec4 dir)
@@ -537,12 +554,7 @@ vec4 trace(vec4 origin, vec4 dir)
 
     float specular_factor, LdN;
 
-	if (firstIntersection(origin, dir, hl)) {
-		getLocal(origin, dir, hl, localColor, hit, N);
-		return directIllumination(localColor, hit, N, -dir) + indirectIllumination(stack, localColor, hit, N, -dir);
-	}
-
-    return vec4(0, 0, 0, 1);
+    return indirectIllumination(stack, origin,  N, dir);
 }
 
 layout (local_size_x = 8, local_size_y = 8) in;
