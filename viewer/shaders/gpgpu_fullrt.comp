@@ -385,7 +385,7 @@ vec4 getSpecularLigthningCookTorrance(float cosTheta, float cosThetaI, float cos
     return Cs;
 }
 
-vec4 getSpecularLigthningBlinnPhong(float cosTheta, float cosThetaI, vec4 n, vec4 H) {
+vec4 getSpecularLigthningBlinnPhong(float cosTheta, float cosThetaI, vec4 n, vec4 H, vec4 color) {
     float sinTheta2 = 1 - (cosTheta * cosTheta);
     return getFresnel(cosTheta) * color * pow(max(dot(n, H), 0), shininess) * lightIntensity;
 }
@@ -422,7 +422,7 @@ vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v)
     vec4 Cs;
     // Model for specular lighting
     if (blinnPhong) { // Blinn Phong
-        Cs = getSpecularLigthningBlinnPhong(cosTheta, cosThetaI, n, H);
+        Cs = getSpecularLigthningBlinnPhong(cosTheta, cosThetaI, n, H, color);
     } else { // Cook-Torrance
         // Theta > 0, we need to check if it isn't > pi/2
         // Theta < 0 if cos(theta) > 0
