@@ -9,6 +9,7 @@
 #include <QWidget>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QTimer>
 
 #include "glshaderwindow.h"
 
@@ -116,6 +117,11 @@ int main( int argc, char* argv[] )
     // Create GL shader window and add it to application
     glShaderWindow *window = new glShaderWindow();
     window->setFormat(format);
+    QTimer *timer = new QTimer(window);
+    QTimer::connect(timer, &QTimer::timeout, window, [window] {
+        window->renderNow();
+    });
+    timer->start(42);
 
     QString appPath = app.applicationDirPath();
     appPath = appPath + "/models/";
