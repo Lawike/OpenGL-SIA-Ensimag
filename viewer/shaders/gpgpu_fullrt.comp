@@ -444,8 +444,8 @@ vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v) {
             khi = 1;    
         }
         float alpha = 0.5 - shininess / 400;
-        if (alpha == 0) {
-            alpha = 0.0025;
+        if (alpha < EPS) {
+            alpha = EPS;
         }
 
         float cosThetaH4 = cosThetaH * cosThetaH * cosThetaH * cosThetaH;
@@ -458,7 +458,7 @@ vec4 directIllumination(vec4 color, vec4 p, vec4 n, vec4 v) {
 	return Ca + Cd + Cs;
 }
 
-const int MAX_TRACE = 10;
+const int MAX_TRACE = 5;
 
 void getLocal(vec4 origin, vec4 dir, hitinfo_t h, out vec4 color, out vec4 p, out vec4 n)
 {
@@ -532,7 +532,7 @@ vec4 indirectIllumination(trace_state_t stack[MAX_TRACE + 1], vec4 p, vec4 n, ve
 
         float cosThetaIndirect = dot(normalize(currentPoint.N), -normalize(currentPoint.dir));
 
-        outColor = directIllumination(currentPoint.localColor, currentPoint.hit, currentPoint.N, currentPoint.dir) + outColor * getFresnel(cosThetaIndirect);
+        outColor = directIllumination(currentPoint.localColor, currentPoint.hit, currentPoint.N, -currentPoint.dir) + outColor * getFresnel(cosThetaIndirect);
         index--;
     }
     return outColor;
