@@ -15,7 +15,7 @@ uniform float radius;
 uniform float groundDistance;
 uniform vec3 center;
 
-#define MAX_SCENE_BOUNDS    10.0
+#define MAX_SCENE_BOUNDS    100.0
 #define EPS                 0.000001
 
 #define MIN_DISTANCE EPS
@@ -25,6 +25,7 @@ uniform vec3 center;
 
 #define Ka 0.05
 #define Kd 0.3
+#define PHI 1.61803398874989484820459  // Φ = Golden Ratio
 
 struct hitinfo_t {
     /* Index of the first index of the triangle */
@@ -545,7 +546,7 @@ vec4 trace(vec4 origin, vec4 dir)
     bool fallback[MAX_TRACE + 1];
     int sp = 0;
 
-	// These are for TP1:
+	// These are for TP1:0
     hitinfo_t hl;
     vec4 hit;
     vec4 localColor;
@@ -556,15 +557,22 @@ vec4 trace(vec4 origin, vec4 dir)
     return indirectIllumination(stack, origin,  N, dir);
 }
 
+float gold_noise(in vec2 xy, in float seed) {
+    return fract(tan(distance(xy * PHI, xy) * seed) * xy.x);
+}
+
 layout (local_size_x = 8, local_size_y = 8) in;
+
 void main(void) {
+    float seed = 1.0;
 	// Convert local screen coordinates into world coordinates
     ivec2 pix = ivec2(gl_GlobalInvocationID.xy);
     ivec2 size = imageSize(framebuffer);
     if (pix.x >= size.x || pix.y >= size.y) {
         return;
     }
-    vec2 pos = pix / (size - vec2(0.5, 0.5));
+    vec2 noisedPix = pix + gold_noise(gl_GlobalInvocationID.xy, seed);
+    vec2 pos = noisedPix / (size - vec2(0.5, 0.5));
     // pos in [0,1]^2 Need it in [-1,1]^2:
     pos = 2 * pos - vec2(1., 1.);
 
