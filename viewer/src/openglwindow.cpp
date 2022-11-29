@@ -152,7 +152,6 @@ void OpenGLWindow::renderNow(bool resetIterationCounter)
     if (m_animating)
         renderLater();
     if (resetIterationCounter) {
-        qDebug() << "RESET";
         this->iteration = 0;
     }
 }

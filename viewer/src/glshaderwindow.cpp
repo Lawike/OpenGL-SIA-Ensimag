@@ -47,8 +47,8 @@ glShaderWindow::glShaderWindow(QWindow *parent)
 
     QTimer *timer = new QTimer(this);
     QTimer::connect(timer, &QTimer::timeout, [this]() {
-        qDebug() << "Render :" << this->iteration;
         renderNow(false);
+        this->iteration++;
     });
     timer->start(42);
 }
