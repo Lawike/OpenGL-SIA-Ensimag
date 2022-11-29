@@ -25,6 +25,9 @@
 
 #include <QTimer>
 
+#include <iostream>
+#include <chrono>
+
 glShaderWindow::glShaderWindow(QWindow *parent)
 // Initialize obvious default values here (e.g. 0 for pointers)
     : OpenGLWindow(parent), modelMesh(0),
@@ -34,7 +37,7 @@ glShaderWindow::glShaderWindow(QWindow *parent)
       environmentMap(0), texture(0), permTexture(0), pixels(0), mouseButton(Qt::NoButton), auxWidget(0),
       isGPGPU(true), hasComputeShaders(true), blinnPhong(true), transparent(true), eta(1.5), lightIntensity(1.0f), shininess(50.0f), lightDistance(5.0f), groundDistance(0.78),
       shadowMap_fboId(0), shadowMap_rboId(0), shadowMap_textureId(0), fullScreenSnapshots(false), computeResult(0), 
-      m_indexBuffer(QOpenGLBuffer::IndexBuffer), ground_indexBuffer(QOpenGLBuffer::IndexBuffer), randomRays(0)
+      m_indexBuffer(QOpenGLBuffer::IndexBuffer), ground_indexBuffer(QOpenGLBuffer::IndexBuffer), randomRays(0), timestamp(0)
 {
     // Default values you might want to tinker with
     shadowMapDimension = 2048;
@@ -51,6 +54,7 @@ glShaderWindow::glShaderWindow(QWindow *parent)
         renderNow(false);
         qDebug() << "Render: " << this->iteration;
         this->iteration++;
+        this->timestamp = std::chrono::system_clock::now().time_since_epoch().count();
     });
     timer->start(42);
 }
@@ -1090,6 +1094,7 @@ void glShaderWindow::render()
         compute_program->setUniformValue("colorTexture", 0);
         compute_program->setUniformValue("iteration", iteration);
         compute_program->setUniformValue("randomRays", randomRays);
+        compute_program->setUniformValue("timestamp", timestamp);
 		glBindImageTexture(2, computeResult->textureId(), 0, false, 0, GL_WRITE_ONLY, GL_RGBA32F);
         int worksize_x = nextPower2(width());
         int worksize_y = nextPower2(height());

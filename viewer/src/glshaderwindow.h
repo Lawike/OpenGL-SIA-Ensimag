@@ -108,6 +108,7 @@ private:
     float lightDistance;
     float groundDistance;
     int randomRays;
+    int timestamp;
 
 
     // OpenGL variables encapsulated by Qt

@@ -16,6 +16,7 @@ uniform float groundDistance;
 uniform vec3 center;
 uniform int iteration;
 uniform int randomRays;
+uniform int timestamp;
 
 #define MAX_SCENE_BOUNDS    100.0
 #define EPS                 0.000001
@@ -823,7 +824,8 @@ float gold_noise(in vec2 xy, in float seed) {
 layout (local_size_x = 8, local_size_y = 8) in;
 
 void main(void) {    
-    float seed = iteration * gl_GlobalInvocationID.x;
+    float seedx = gl_GlobalInvocationID.x + iteration + timestamp % 1000;
+    float seedy = gl_GlobalInvocationID.y + iteration + timestamp % 1000;
 	// Convert local screen coordinates into world coordinates
     ivec2 pix = ivec2(gl_GlobalInvocationID.xy);
     ivec2 size = imageSize(framebuffer);
@@ -833,8 +835,8 @@ void main(void) {
     vec2 noise;
     switch (randomRays) {
         case 1:
-            noise.x = gold_noise(pix, seed);
-            noise.y = gold_noise(pix, seed + 1);
+            noise.x = gold_noise(pix, seedx);
+            noise.y = gold_noise(pix, seedy);
             break;
         case 2:
             noise.x = haltons[iteration % 256];
