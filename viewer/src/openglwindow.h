@@ -65,11 +65,12 @@ public:
 
 public slots:
     void renderLater();
-    void renderNow();
+    void renderNow(bool resetIterationCounter = true);
 
 protected:
     bool event(QEvent *event);
     void exposeEvent(QExposeEvent *event);
+    int iteration;
 
 private:
     bool m_update_pending;

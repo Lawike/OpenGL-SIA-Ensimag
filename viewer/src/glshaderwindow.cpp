@@ -22,6 +22,8 @@
 #include "bvh/bvh.hpp"
 #include "bvh/triangle.hpp"
 
+#include <QTimer>
+
 glShaderWindow::glShaderWindow(QWindow *parent)
 // Initialize obvious default values here (e.g. 0 for pointers)
     : OpenGLWindow(parent), modelMesh(0),
@@ -42,6 +44,13 @@ glShaderWindow::glShaderWindow(QWindow *parent)
     m_fragShaderSuffix << "*.frag" << "*.fs";
     m_vertShaderSuffix << "*.vert" << "*.vs";
     m_compShaderSuffix << "*.comp" << "*.cs";
+
+    QTimer *timer = new QTimer(this);
+    QTimer::connect(timer, &QTimer::timeout, [this]() {
+        qDebug() << "Render :" << this->iteration;
+        renderNow(false);
+    });
+    timer->start(42);
 }
 
 glShaderWindow::~glShaderWindow()
@@ -1029,6 +1038,7 @@ void glShaderWindow::render()
         compute_program->setUniformValue("eta", eta);
         compute_program->setUniformValue("framebuffer", 2);
         compute_program->setUniformValue("colorTexture", 0);
+        compute_program->setUniformValue("iteration", iteration);
 		glBindImageTexture(2, computeResult->textureId(), 0, false, 0, GL_WRITE_ONLY, GL_RGBA32F);
         int worksize_x = nextPower2(width());
         int worksize_y = nextPower2(height());

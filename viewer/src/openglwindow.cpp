@@ -55,6 +55,7 @@ OpenGLWindow::OpenGLWindow(QWindow *parent)
     , m_animating(false)
     , m_context(0)
     , m_device(0)
+    , iteration(0)
 {
     setSurfaceType(QWindow::OpenGLSurface);
 }
@@ -121,7 +122,7 @@ void OpenGLWindow::exposeEvent(QExposeEvent *event)
 //! [3]
 
 //! [4]
-void OpenGLWindow::renderNow()
+void OpenGLWindow::renderNow(bool resetIterationCounter)
 {
     if (!isExposed())
         return;
@@ -150,6 +151,10 @@ void OpenGLWindow::renderNow()
 
     if (m_animating)
         renderLater();
+    if (resetIterationCounter) {
+        qDebug() << "RESET";
+        this->iteration = 0;
+    }
 }
 //! [4]
 
