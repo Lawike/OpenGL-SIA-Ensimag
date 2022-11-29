@@ -10,6 +10,7 @@
 #include <QRadioButton>
 #include <QSlider>
 #include <QLabel>
+#include <QCheckBox>
 // Layouts for User interface
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -33,7 +34,7 @@ glShaderWindow::glShaderWindow(QWindow *parent)
       environmentMap(0), texture(0), permTexture(0), pixels(0), mouseButton(Qt::NoButton), auxWidget(0),
       isGPGPU(true), hasComputeShaders(true), blinnPhong(true), transparent(true), eta(1.5), lightIntensity(1.0f), shininess(50.0f), lightDistance(5.0f), groundDistance(0.78),
       shadowMap_fboId(0), shadowMap_rboId(0), shadowMap_textureId(0), fullScreenSnapshots(false), computeResult(0), 
-      m_indexBuffer(QOpenGLBuffer::IndexBuffer), ground_indexBuffer(QOpenGLBuffer::IndexBuffer)
+      m_indexBuffer(QOpenGLBuffer::IndexBuffer), ground_indexBuffer(QOpenGLBuffer::IndexBuffer), randomRays(0)
 {
     // Default values you might want to tinker with
     shadowMapDimension = 2048;
@@ -48,6 +49,7 @@ glShaderWindow::glShaderWindow(QWindow *parent)
     QTimer *timer = new QTimer(this);
     QTimer::connect(timer, &QTimer::timeout, [this]() {
         renderNow(false);
+        qDebug() << "Render: " << this->iteration;
         this->iteration++;
     });
     timer->start(42);
@@ -220,6 +222,24 @@ void glShaderWindow::updateEta(int etaSliderValue)
     renderNow();
 }
 
+void glShaderWindow::randomRays1Clicked()
+{
+    randomRays = 0;
+    renderNow();
+}
+
+void glShaderWindow::randomRays2Clicked()
+{
+    randomRays = 1;
+    renderNow();
+}
+
+void glShaderWindow::randomRays3Clicked()
+{
+    randomRays = 2;
+    renderNow();
+}
+
 QWidget *glShaderWindow::makeAuxWindow()
 {
     if (auxWidget)
@@ -308,6 +328,36 @@ QWidget *glShaderWindow::makeAuxWindow()
     hboxEta->addWidget(etaLabelValue);
     outer->addLayout(hboxEta);
     outer->addWidget(etaSlider);
+
+    // Noise manager
+    QGroupBox *groupBox3 = new QGroupBox("Noise reduction method:");
+    QRadioButton *randomRays1 = new QRadioButton("&None");
+    QRadioButton *randomRays2 = new QRadioButton("&Pseudo random");
+    QRadioButton *randomRays3 = new QRadioButton("&Halton");
+    switch(randomRays) {
+        case 0:
+            randomRays1->setChecked(true);
+            break;
+        case 1:
+            randomRays2->setChecked(true);
+            break;
+        case 2:
+            randomRays3->setChecked(true);
+            break;
+        default:
+            randomRays1->setChecked(true);
+    }
+    connect(randomRays1, SIGNAL(clicked()), this, SLOT(randomRays1Clicked()));
+    connect(randomRays2, SIGNAL(clicked()), this, SLOT(randomRays2Clicked()));
+    connect(randomRays3, SIGNAL(clicked()), this, SLOT(randomRays3Clicked()));
+    
+    QVBoxLayout *vbox3 = new QVBoxLayout;
+    vbox3->addWidget(randomRays1);
+    vbox3->addWidget(randomRays2);
+    vbox3->addWidget(randomRays3);
+    groupBox3->setLayout(vbox3);
+    buttons->addWidget(groupBox3);
+    outer->addLayout(buttons);
 
     auxWidget->setLayout(outer);
     return auxWidget;
@@ -1039,6 +1089,7 @@ void glShaderWindow::render()
         compute_program->setUniformValue("framebuffer", 2);
         compute_program->setUniformValue("colorTexture", 0);
         compute_program->setUniformValue("iteration", iteration);
+        compute_program->setUniformValue("randomRays", randomRays);
 		glBindImageTexture(2, computeResult->textureId(), 0, false, 0, GL_WRITE_ONLY, GL_RGBA32F);
         int worksize_x = nextPower2(width());
         int worksize_y = nextPower2(height());
