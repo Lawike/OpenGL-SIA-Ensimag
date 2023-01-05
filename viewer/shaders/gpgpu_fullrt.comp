@@ -17,6 +17,7 @@ uniform vec3 center;
 uniform int iteration;
 uniform int randomRays;
 uniform int timestamp;
+uniform bool showVariance;
 
 #define MAX_SCENE_BOUNDS    100.0
 #define EPS                 0.000001
@@ -29,6 +30,7 @@ uniform int timestamp;
 #define Ka 0.05
 #define Kd 0.3
 #define PHI 1.61803398874989484820459  // Φ = Golden Ratio
+#define MAX_HEIGHT 1080
 
 struct hitinfo_t {
     /* Index of the first index of the triangle */
@@ -69,6 +71,16 @@ layout (std430, binding = 4) buffer Meshes
 layout (std430, binding = 5) buffer BVHNodes
 {
     BVHNode nodes[];
+};
+
+layout (std430, binding = 6) buffer ColorBuffer 
+{
+    vec4 colorMeans[];
+};
+
+layout (std430, binding = 7) buffer VarianceBuffer 
+{
+    vec4 variances[];
 };
 
 float haltons[256] =  float[256](
@@ -824,8 +836,11 @@ float gold_noise(in vec2 xy, in float seed) {
 layout (local_size_x = 8, local_size_y = 8) in;
 
 void main(void) {    
-    float seedx = gl_GlobalInvocationID.x + iteration + timestamp % 1000;
-    float seedy = gl_GlobalInvocationID.y + iteration + timestamp % 1000;
+    uint x = gl_GlobalInvocationID.x;
+    uint y = gl_GlobalInvocationID.y;
+
+    float seedx = x + iteration + timestamp % 1000;
+    float seedy = y + iteration + timestamp % 1000;
 	// Convert local screen coordinates into world coordinates
     ivec2 pix = ivec2(gl_GlobalInvocationID.xy);
     ivec2 size = imageSize(framebuffer);
@@ -848,8 +863,12 @@ void main(void) {
 
     vec2 noisedPix = pix + noise;
     vec4 previousColor = vec4(0,0,0,0);
+    vec4 previousVariance = vec4(0,0,0,0);
+    vec4 variance = vec4(0,0,0,0);
     if (iteration != 0) {
-        previousColor = imageLoad(framebuffer, pix);
+        // We display variance and store the computed color
+        previousColor = colorMeans[x * MAX_HEIGHT + y];
+        previousVariance = variances[x * MAX_HEIGHT + y];
     }
     vec2 pos = noisedPix / (size - vec2(0.5, 0.5));
     // pos in [0,1]^2 Need it in [-1,1]^2:
@@ -865,8 +884,17 @@ void main(void) {
     vec4 dir = normalize((mat_inverse * worldPos));
     vec4 eye = (mat_inverse * vec4(0, 0, 0, 1));
     vec4 color = trace(eye, dir);
+    // Compute Variance
+    vec4 newColor = (iteration * previousColor + color) / (iteration + 1);
     if (iteration != 0) {
-       color = (iteration * previousColor + color) / (iteration + 1);
+        variance = ((previousVariance * (iteration - 1)) + ((color - previousColor) * (color - previousColor))) / iteration;
     }
-    imageStore(framebuffer, pix, color);
+    // Compute color mean
+    colorMeans[x * MAX_HEIGHT + y] = newColor;
+    variances[x * MAX_HEIGHT + y] = variance;
+    if (!showVariance) {
+        imageStore(framebuffer, pix, newColor + variance * 100 * vec4(1,0,1,1));
+    } else {
+        imageStore(framebuffer, pix, newColor);
+    }
 }

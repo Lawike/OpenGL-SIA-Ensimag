@@ -1,5 +1,7 @@
 #ifndef GLSHADERWINDOW_H
 #define GLSHADERWINDOW_H
+#define MAX_WIDTH 1920
+#define MAX_HEIGHT 1080
 
 #include "openglwindow.h"
 #include "TriMesh.h"
@@ -109,6 +111,9 @@ private:
     float groundDistance;
     int randomRays;
     int timestamp;
+    trimesh::vec *variance;
+    trimesh::vec *colorMean;
+    bool showVariance;
 
 
     // OpenGL variables encapsulated by Qt

@@ -37,7 +37,7 @@ glShaderWindow::glShaderWindow(QWindow *parent)
       environmentMap(0), texture(0), permTexture(0), pixels(0), mouseButton(Qt::NoButton), auxWidget(0),
       isGPGPU(true), hasComputeShaders(true), blinnPhong(true), transparent(true), eta(1.5), lightIntensity(1.0f), shininess(50.0f), lightDistance(5.0f), groundDistance(0.78),
       shadowMap_fboId(0), shadowMap_rboId(0), shadowMap_textureId(0), fullScreenSnapshots(false), computeResult(0), 
-      m_indexBuffer(QOpenGLBuffer::IndexBuffer), ground_indexBuffer(QOpenGLBuffer::IndexBuffer), randomRays(0), timestamp(0)
+      m_indexBuffer(QOpenGLBuffer::IndexBuffer), ground_indexBuffer(QOpenGLBuffer::IndexBuffer), randomRays(0), timestamp(0), showVariance(false)
 {
     // Default values you might want to tinker with
     shadowMapDimension = 2048;
@@ -49,6 +49,8 @@ glShaderWindow::glShaderWindow(QWindow *parent)
     m_vertShaderSuffix << "*.vert" << "*.vs";
     m_compShaderSuffix << "*.comp" << "*.cs";
 
+    this->variance = new trimesh::vec[MAX_WIDTH*MAX_HEIGHT];
+    this->colorMean = new trimesh::vec[MAX_WIDTH*MAX_HEIGHT];
     QTimer *timer = new QTimer(this);
     QTimer::connect(timer, &QTimer::timeout, [this]() {
         renderNow(false);
@@ -374,7 +376,7 @@ void glShaderWindow::createSSBO()
     const std::vector<BVH::Node>& nodes = bvh.getNodes();
     const std::vector<Triangle>& triangles = bvh.getTriangles();
 
-	glGenBuffers(5, ssbo);
+	glGenBuffers(7, ssbo);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[0]);
     // TODO: test if 4 float alignment works better
     glBufferData(GL_SHADER_STORAGE_BUFFER, modelMesh->vertices.size() * sizeof(trimesh::point), &(modelMesh->vertices.front()), GL_STATIC_READ);
@@ -388,12 +390,20 @@ void glShaderWindow::createSSBO()
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[4]);
     glBufferData(GL_SHADER_STORAGE_BUFFER, nodes.size() * sizeof(BVH::Node), nodes.data(), GL_STATIC_READ);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    // Color mean buffer
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[5]);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, MAX_WIDTH * MAX_HEIGHT * sizeof(trimesh::vec), this->colorMean, GL_STATIC_READ);
+    // Variance buffer
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo[6]);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, MAX_WIDTH * MAX_HEIGHT * sizeof(trimesh::vec), this->variance, GL_STATIC_READ);
     compute_program->bind();
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo[0]);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, ssbo[1]);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, ssbo[2]);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, ssbo[3]);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, ssbo[4]);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, ssbo[5]);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 7, ssbo[6]);
 }
 
 void glShaderWindow::bindSceneToProgram()
@@ -1095,6 +1105,7 @@ void glShaderWindow::render()
         compute_program->setUniformValue("iteration", iteration);
         compute_program->setUniformValue("randomRays", randomRays);
         compute_program->setUniformValue("timestamp", timestamp);
+        compute_program->setUniformValue("showVariance", showVariance);
 		glBindImageTexture(2, computeResult->textureId(), 0, false, 0, GL_WRITE_ONLY, GL_RGBA32F);
         int worksize_x = nextPower2(width());
         int worksize_y = nextPower2(height());
